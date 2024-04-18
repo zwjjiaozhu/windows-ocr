@@ -5,11 +5,15 @@
 #include <winrt/Windows.Globalization.h>
 #include <winrt/Windows.Foundation.h>
 #include <iostream>
+#include <string>
+#include <windows.h>
 #include <locale.h>
+#include <codecvt>
+#include <filesystem>
 
 
 using namespace std;
-
+namespace fs = std::filesystem;
 using namespace winrt;
 using namespace Windows::Storage;
 using namespace Windows::Storage::Streams;
@@ -46,23 +50,49 @@ winrt::hstring PerformOcr(const SoftwareBitmap& softwareBitmap)
     return ocrResult.Text();
 }
 
+std::wstring toWstring(const char* utf8str) {
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &utf8str[0], -1, NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, &utf8str[0], -1, &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
 int main(int argc, char* argv[])
 {
-    if (argc < 2) {
-        std::cerr << "用法: " << argv[0] << " <参数1> <参数2> ..." << std::endl;
+    if (argc < 3) {
+        std::cerr << "用法: " << argv[0] << " <image path> <language> ..." << std::endl;
         return 1;
     }
-    _wsetlocale(LC_ALL, L"zh-CN");
 
+    std:string imgPath = string(argv[1]);
+    if (!fs::exists(imgPath)) {
+        std::cout << "文件不存在" << std::endl;
+        return 1; // 或者返回其他您认为合适的值
+    }
+
+
+    winrt::hstring imagePath = winrt::to_hstring(imgPath);
+    // winrt:: language = winrt::to_hstring(argv[2]);
+    // std::cout << L"imagePath：" << to_string(imagePath) << std::endl;
+
+    // 设置目标宽字符字符串的缓冲区大小
+    const int bufferSize = 50;
+    wchar_t language[bufferSize];
+
+    // 调用MultiByteToWideChar进行转换
+    int result = MultiByteToWideChar(CP_UTF8, 0, argv[2], -1, language, bufferSize);
+
+    _wsetlocale(LC_ALL, language); // L"zh-CN"
+    
 
     InitializeWinRT();
 
-    winrt::hstring imagePath = L"C:\\Users\\jiaozhuzhang\\Desktop\\test.png";
+    // winrt::hstring imagePath = L"C:\\Users\\jiaozhuzhang\\Desktop\\test.png";
 
     SoftwareBitmap softwareBitmap = LoadImage(imagePath);
     winrt::hstring resultText = PerformOcr(softwareBitmap);
 
-    std::wcout << L"识别结果：" << resultText.c_str() << std::endl;
+    std::wcout << L"result:" << resultText.c_str() << std::endl;
 
     return 0;
 }
